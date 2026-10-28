@@ -1,4 +1,6 @@
+using Microsoft.EntityFrameworkCore;
 using RodajeIA.Web.Components;
+using RodajeIA.Web.Datos;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -10,6 +12,12 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents(o => o.DetailedErrors = builder.Environment.IsDevelopment())
     .AddHubOptions(o => o.MaximumReceiveMessageSize = 1 * 1024 * 1024);
+
+// Interactive Server: un contexto scoped viviría todo el circuito; los servicios crean uno por
+// operación con la fábrica.
+var cadenaConexion = builder.Configuration.GetConnectionString("RodajeIA")
+    ?? throw new InvalidOperationException("Falta la cadena de conexión 'ConnectionStrings:RodajeIA'.");
+builder.Services.AddDbContextFactory<RodajeDbContext>(o => o.UseSqlite(cadenaConexion));
 
 var app = builder.Build();
 
