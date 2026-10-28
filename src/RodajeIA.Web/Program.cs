@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using RodajeIA.Web.Components;
 using RodajeIA.Web.Datos;
+using RodajeIA.Web.Servicios;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -18,6 +19,12 @@ builder.Services.AddRazorComponents()
 var cadenaConexion = builder.Configuration.GetConnectionString("RodajeIA")
     ?? throw new InvalidOperationException("Falta la cadena de conexión 'ConnectionStrings:RodajeIA'.");
 builder.Services.AddDbContextFactory<RodajeDbContext>(o => o.UseSqlite(cadenaConexion));
+
+// Servicios que usa la UI; cada operación crea su propio contexto con la fábrica.
+builder.Services.AddScoped<ServicioSeries>();
+builder.Services.AddScoped<ServicioPersonajes>();
+builder.Services.AddScoped<ServicioEpisodios>();
+builder.Services.AddScoped<ServicioGuiones>();
 
 var app = builder.Build();
 
