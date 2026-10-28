@@ -8,3 +8,11 @@
 .daw-sessions/
 .daw-journal.jsonl
 # END DAW
+
+# .NET y artefactos locales
+bin/
+obj/
+*.db
+*.db-shm
+*.db-wal
+__pycache__/
