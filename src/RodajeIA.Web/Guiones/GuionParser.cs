@@ -1,3 +1,4 @@
+using System.Text;
 using System.Text.RegularExpressions;
 
 namespace RodajeIA.Web.Guiones;
@@ -56,6 +57,8 @@ public static class GuionParser
     internal const string MotivoComillasVacias = "Las comillas están vacías";
     internal const string MotivoAcotacionVacia = "La acotación está vacía";
     internal const string MotivoAcotacionSinCerrar = "Falta cerrar el paréntesis de la acotación";
+    internal const string MotivoNoNfc =
+        "Texto con tildes en formato no estándar (NFD); vuelve a pegarlo desde otro editor";
 
     /// <summary>
     /// Parsea y valida el guion. Un texto null se trata como vacío. Nunca lanza por el contenido.
@@ -74,9 +77,18 @@ public static class GuionParser
         for (var i = 0; i < lineas.Length; i++)
         {
             var linea = lineas[i].Trim();
-            if (linea.Length > 0)
+            if (linea.Length == 0)
+            {
+                continue;
+            }
+
+            if (linea.IsNormalized(NormalizationForm.FormC))
             {
                 analizador.Procesar(linea, i + 1);
+            }
+            else
+            {
+                analizador.ProcesarNoNormalizada(linea, i + 1);
             }
         }
 
@@ -191,6 +203,32 @@ public static class GuionParser
             {
                 clip.Accion.Add(linea);
             }
+        }
+
+        /// <summary>
+        /// Línea que no está en NFC (p. ej., tildes como letra + marca combinante, típico al pegar
+        /// desde macOS). Se procesa su forma NFC solo para que la estructura avance (escena,
+        /// campos, clip, contenido) y no aparezcan errores en cascada; los errores que esa línea
+        /// genere en sí misma se reemplazan por un único <see cref="MotivoNoNfc"/>. El guion
+        /// queda inválido, así que <see cref="GuionParseado"/> es null y ningún valor normalizado
+        /// sale del parser: el texto nunca se corrige.
+        /// </summary>
+        public void ProcesarNoNormalizada(string linea, int numero)
+        {
+            var marca = _errores.Count;
+            Procesar(linea.Normalize(NormalizationForm.FormC), numero);
+
+            // Solo se descartan los errores de esta línea: al abrir una escena se cierra la
+            // anterior, y sus errores (en otras líneas) son legítimos.
+            for (var i = _errores.Count - 1; i >= marca; i--)
+            {
+                if (_errores[i].Linea == numero)
+                {
+                    _errores.RemoveAt(i);
+                }
+            }
+
+            Error(numero, MotivoNoNfc);
         }
 
         public ResultadoParseo Terminar()

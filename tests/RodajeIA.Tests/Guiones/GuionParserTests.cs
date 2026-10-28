@@ -634,6 +634,113 @@ public class GuionParserTests
         Assert.NotEmpty(valido.Guion.Escenas);
     }
 
+    [Fact]
+    public void LineaEnNFD_ErrorEnEsaLinea()
+    {
+        const string motivo = "Texto con tildes en formato no estándar (NFD); vuelve a pegarlo desde otro editor";
+        string[] lineas =
+        [
+            .. EncabezadoYCampos(1),                    // 1-5
+            "CLIP 1",                                   // 6
+            "José Daniel mira por la ventana.",         // 7: acción
+            "JOSÉ DANIEL: \"Hola.\"",                   // 8: marcador de diálogo
+            "CLIP 2",                                   // 9
+            "Ana saluda a José Daniel.",                // 10: única línea del clip
+        ];
+        var enNfd = (string[])lineas.Clone();
+        foreach (var i in new[] { 6, 7, 9 })
+        {
+            enNfd[i] = lineas[i].Normalize(NormalizationForm.FormD);
+            Assert.NotEqual(lineas[i], enNfd[i]);
+        }
+
+        var nfc = GuionParser.Parsear(Unir(lineas));
+        var nfd = GuionParser.Parsear(Unir(enNfd));
+
+        Assert.Empty(nfc.Errores);
+        Assert.NotNull(nfc.Guion);
+        Assert.Null(nfd.Guion);
+        // Un error por línea en NFD y ninguno en cascada (ni «clip sin contenido» en el CLIP 2).
+        Assert.Equal(
+            [new ErrorGuion(7, motivo), new ErrorGuion(8, motivo), new ErrorGuion(10, motivo)],
+            nfd.Errores);
+    }
+
+    private const string MotivoNoNfc =
+        "Texto con tildes en formato no estándar (NFD); vuelve a pegarlo desde otro editor";
+
+    /// <summary>Une las líneas pasando a NFD las de los índices (desde 0) indicados.</summary>
+    private static string UnirConNfd(string[] lineas, params int[] indicesNfd)
+    {
+        var copia = (string[])lineas.Clone();
+        foreach (var i in indicesNfd)
+        {
+            copia[i] = lineas[i].Normalize(NormalizationForm.FormD);
+            Assert.NotEqual(lineas[i], copia[i]);
+        }
+
+        return Unir(copia);
+    }
+
+    [Fact]
+    public void GuionEnteroEnNFD_UnErrorNfdPorLineaConTilde()
+    {
+        var lineas = EscenaDeEjemplo.Split('\n');
+        var esperadas = lineas
+            .Select((linea, i) => (Linea: i + 1, Texto: linea.Normalize(NormalizationForm.FormD)))
+            .Where(x => x.Texto != x.Texto.Normalize(NormalizationForm.FormC))
+            .Select(x => new ErrorGuion(x.Linea, MotivoNoNfc))
+            .ToList();
+        Assert.True(esperadas.Count > 3);
+
+        var resultado = GuionParser.Parsear(EscenaDeEjemplo.Normalize(NormalizationForm.FormD));
+
+        Assert.Null(resultado.Guion);
+        Assert.Equal(esperadas, resultado.Errores);
+    }
+
+    [Fact]
+    public void EncabezadoEscena1EnNFD_SoloErrorNfd()
+    {
+        var resultado = GuionParser.Parsear(UnirConNfd(EscenaMinima(1), 0));
+
+        Assert.Null(resultado.Guion);
+        Assert.Equal([new ErrorGuion(1, MotivoNoNfc)], resultado.Errores);
+    }
+
+    [Fact]
+    public void EncabezadoEscenaNEnNFD_SoloErrorNfd()
+    {
+        var resultado = GuionParser.Parsear(UnirConNfd([.. EscenaMinima(1), .. EscenaMinima(2)], 7));
+
+        Assert.Null(resultado.Guion);
+        Assert.Equal([new ErrorGuion(8, MotivoNoNfc)], resultado.Errores);
+    }
+
+    [Fact]
+    public void EncabezadoEnNFD_ConservaLosErroresDeLaEscenaAnterior()
+    {
+        // Al abrir la escena 2 se cierra la 1, que no tiene AUDIO: ese error es de la línea 1 y
+        // no se descarta junto con los de la línea en NFD.
+        string[] lineas = [.. EscenaMinima(1)[..4], .. EscenaMinima(1)[5..], .. EscenaMinima(2)];
+
+        var resultado = GuionParser.Parsear(UnirConNfd(lineas, 6));
+
+        Assert.Null(resultado.Guion);
+        Assert.Equal(
+            [new ErrorGuion(1, "Falta el campo AUDIO"), new ErrorGuion(7, MotivoNoNfc)],
+            resultado.Errores);
+    }
+
+    [Fact]
+    public void CampoLocacionEnNFD_SoloErrorNfd()
+    {
+        var resultado = GuionParser.Parsear(UnirConNfd(EscenaMinima(1), 1));
+
+        Assert.Null(resultado.Guion);
+        Assert.Equal([new ErrorGuion(2, MotivoNoNfc)], resultado.Errores);
+    }
+
     // ---------- Rendimiento ----------
 
     [Fact]
