@@ -1,0 +1,94 @@
+@page "/series"
+@rendermode InteractiveServer
+@using RodajeIA.Web.Servicios
+@using ErrorServicio = RodajeIA.Web.Servicios.Error
+@inject ServicioSeries ServicioSeries
+
+<PageTitle>Series</PageTitle>
+
+<h1>Series</h1>
+
+<section>
+    <h2>Nueva serie</h2>
+
+    @foreach (var error in ErroresGenerales(errores, CamposSerie))
+    {
+        <div class="alert alert-danger">@error.Motivo</div>
+    }
+
+    <form id="form-serie" @onsubmit="CrearAsync">
+        <div class="mb-3">
+            <label for="nombre-serie" class="form-label">Nombre</label>
+            <input id="nombre-serie" class="form-control" maxlength="@ServicioSeries.MaximoNombre" @bind="nombre" />
+            @foreach (var error in errores.Where(e => e.Campo == "Nombre"))
+            {
+                <div class="text-danger" data-campo="Nombre">@error.Motivo</div>
+            }
+        </div>
+        <button type="submit" class="btn btn-primary" disabled="@guardando">Crear serie</button>
+    </form>
+</section>
+
+<section class="mt-4">
+    <h2>Listado</h2>
+
+    @if (series is null)
+    {
+        <p>Cargando…</p>
+    }
+    else if (series.Count == 0)
+    {
+        <p>Todavía no hay series.</p>
+    }
+    else
+    {
+        <ul id="lista-series">
+            @foreach (var serie in series)
+            {
+                <li><a href="@($"series/{serie.Id}")">@serie.Nombre</a></li>
+            }
+        </ul>
+    }
+</section>
+
+@code {
+    private static readonly string[] CamposSerie = ["Nombre"];
+
+    private IReadOnlyList<SerieResumen>? series;
+    private IReadOnlyList<ErrorServicio> errores = [];
+    private string nombre = "";
+    private bool guardando;
+
+    protected override async Task OnInitializedAsync() => series = await ServicioSeries.ListarAsync();
+
+    private async Task CrearAsync()
+    {
+        if (guardando)
+        {
+            return;
+        }
+
+        guardando = true;
+        try
+        {
+            var resultado = await ServicioSeries.CrearAsync(nombre);
+            if (resultado.EsExito)
+            {
+                errores = [];
+                nombre = "";
+                series = await ServicioSeries.ListarAsync();
+            }
+            else
+            {
+                errores = resultado.Errores;
+            }
+        }
+        finally
+        {
+            guardando = false;
+        }
+    }
+
+    private static IEnumerable<ErrorServicio> ErroresGenerales(IEnumerable<ErrorServicio> errores, IReadOnlyCollection<string> campos) =>
+        errores.Where(e => e.Campo is null || !campos.Contains(e.Campo));
+}

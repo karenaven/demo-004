@@ -1,0 +1,266 @@
+@page "/series/{SerieId:int}"
+@rendermode InteractiveServer
+@using RodajeIA.Web.Servicios
+@using ErrorServicio = RodajeIA.Web.Servicios.Error
+@inject ServicioSeries ServicioSeries
+@inject ServicioPersonajes ServicioPersonajes
+@inject ServicioEpisodios ServicioEpisodios
+
+<PageTitle>@(serie?.Nombre ?? "Serie")</PageTitle>
+
+@if (cargando)
+{
+    <p>Cargando…</p>
+}
+else if (serie is null)
+{
+    <h1>Serie</h1>
+    <div class="alert alert-warning">La serie no existe.</div>
+    <a href="/series">Volver a las series</a>
+}
+else
+{
+    <h1>@serie.Nombre</h1>
+    <p><a href="/series">Volver a las series</a></p>
+
+    <section>
+        <h2>Personajes</h2>
+
+        @if (personajes.Count == 0)
+        {
+            <p>Todavía no hay hojas de personaje.</p>
+        }
+        else
+        {
+            <ul id="lista-personajes">
+                @foreach (var p in personajes)
+                {
+                    <li>
+                        <strong>@p.Nombre</strong> (@p.Edad) — @p.Rol
+                        <dl class="small">
+                            <dt>Descripción física</dt><dd>@p.DescripcionFisica</dd>
+                            <dt>Peinado</dt><dd>@p.Peinado</dd>
+                            <dt>Vestuario</dt><dd>@p.Vestuario</dd>
+                            @if (p.HeridasMarcas is not null)
+                            {
+                                <dt>Heridas o marcas</dt><dd>@p.HeridasMarcas</dd>
+                            }
+                            <dt>Personalidad</dt><dd>@p.Personalidad</dd>
+                        </dl>
+                    </li>
+                }
+            </ul>
+        }
+
+        <h3>Nueva hoja de personaje</h3>
+
+        @foreach (var error in ErroresGenerales(erroresPersonaje, CamposPersonaje))
+        {
+            <div class="alert alert-danger">@error.Motivo</div>
+        }
+
+        <form id="form-personaje" @onsubmit="CrearPersonajeAsync">
+            <div class="mb-2">
+                <label for="personaje-Nombre" class="form-label">Nombre</label>
+                <input id="personaje-Nombre" class="form-control" maxlength="@ServicioPersonajes.MaximoNombre" @bind="personaje.Nombre" />
+                @ErroresDe(erroresPersonaje, "Nombre")
+            </div>
+            <div class="mb-2">
+                <label for="personaje-Edad" class="form-label">Edad</label>
+                <input id="personaje-Edad" class="form-control" maxlength="40" @bind="personaje.Edad" />
+                @ErroresDe(erroresPersonaje, "Edad")
+            </div>
+            <div class="mb-2">
+                <label for="personaje-DescripcionFisica" class="form-label">Descripción física</label>
+                <textarea id="personaje-DescripcionFisica" class="form-control" maxlength="2000" @bind="personaje.DescripcionFisica"></textarea>
+                @ErroresDe(erroresPersonaje, "DescripcionFisica")
+            </div>
+            <div class="mb-2">
+                <label for="personaje-Peinado" class="form-label">Peinado</label>
+                <input id="personaje-Peinado" class="form-control" maxlength="300" @bind="personaje.Peinado" />
+                @ErroresDe(erroresPersonaje, "Peinado")
+            </div>
+            <div class="mb-2">
+                <label for="personaje-Vestuario" class="form-label">Vestuario</label>
+                <textarea id="personaje-Vestuario" class="form-control" maxlength="500" @bind="personaje.Vestuario"></textarea>
+                @ErroresDe(erroresPersonaje, "Vestuario")
+            </div>
+            <div class="mb-2">
+                <label for="personaje-HeridasMarcas" class="form-label">Heridas o marcas (opcional)</label>
+                <textarea id="personaje-HeridasMarcas" class="form-control" maxlength="500" @bind="personaje.HeridasMarcas"></textarea>
+                @ErroresDe(erroresPersonaje, "HeridasMarcas")
+            </div>
+            <div class="mb-2">
+                <label for="personaje-Personalidad" class="form-label">Personalidad</label>
+                <textarea id="personaje-Personalidad" class="form-control" maxlength="1000" @bind="personaje.Personalidad"></textarea>
+                @ErroresDe(erroresPersonaje, "Personalidad")
+            </div>
+            <div class="mb-2">
+                <label for="personaje-Rol" class="form-label">Rol</label>
+                <input id="personaje-Rol" class="form-control" maxlength="200" @bind="personaje.Rol" />
+                @ErroresDe(erroresPersonaje, "Rol")
+            </div>
+            <button type="submit" class="btn btn-primary" disabled="@guardandoPersonaje">Crear personaje</button>
+        </form>
+    </section>
+
+    <section class="mt-4">
+        <h2>Episodios</h2>
+
+        @if (episodios.Count == 0)
+        {
+            <p>Todavía no hay episodios.</p>
+        }
+        else
+        {
+            <ul id="lista-episodios">
+                @foreach (var e in episodios)
+                {
+                    <li>Episodio @e.Numero — @e.Titulo</li>
+                }
+            </ul>
+        }
+
+        <h3>Nuevo episodio</h3>
+
+        @foreach (var error in ErroresGenerales(erroresEpisodio, CamposEpisodio))
+        {
+            <div class="alert alert-danger">@error.Motivo</div>
+        }
+
+        <form id="form-episodio" @onsubmit="CrearEpisodioAsync">
+            <div class="mb-2">
+                <label for="numero-episodio" class="form-label">Número</label>
+                <input id="numero-episodio" type="number" min="1" max="@ServicioEpisodios.MaximoNumero" class="form-control" @bind="numeroEpisodio" />
+                @ErroresDe(erroresEpisodio, "Numero")
+            </div>
+            <div class="mb-2">
+                <label for="titulo-episodio" class="form-label">Título</label>
+                <input id="titulo-episodio" class="form-control" maxlength="@ServicioEpisodios.MaximoTitulo" @bind="tituloEpisodio" />
+                @ErroresDe(erroresEpisodio, "Titulo")
+            </div>
+            <button type="submit" class="btn btn-primary" disabled="@guardandoEpisodio">Crear episodio</button>
+        </form>
+    </section>
+}
+
+@code {
+    private static readonly string[] CamposPersonaje =
+        ["Nombre", "Edad", "DescripcionFisica", "Peinado", "Vestuario", "HeridasMarcas", "Personalidad", "Rol"];
+
+    private static readonly string[] CamposEpisodio = ["Numero", "Titulo"];
+
+    [Parameter]
+    public int SerieId { get; set; }
+
+    private bool cargando = true;
+    private SerieResumen? serie;
+    private IReadOnlyList<PersonajeResumen> personajes = [];
+    private IReadOnlyList<EpisodioResumen> episodios = [];
+
+    private FormularioPersonaje personaje = new();
+    private IReadOnlyList<ErrorServicio> erroresPersonaje = [];
+    private bool guardandoPersonaje;
+
+    private int? numeroEpisodio;
+    private string tituloEpisodio = "";
+    private IReadOnlyList<ErrorServicio> erroresEpisodio = [];
+    private bool guardandoEpisodio;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        cargando = true;
+        serie = (await ServicioSeries.ListarAsync()).FirstOrDefault(s => s.Id == SerieId);
+        if (serie is not null)
+        {
+            personajes = await ServicioPersonajes.ListarAsync(SerieId);
+            episodios = await ServicioEpisodios.ListarAsync(SerieId);
+        }
+
+        cargando = false;
+    }
+
+    private async Task CrearPersonajeAsync()
+    {
+        if (guardandoPersonaje)
+        {
+            return;
+        }
+
+        guardandoPersonaje = true;
+        try
+        {
+            var resultado = await ServicioPersonajes.CrearAsync(SerieId, personaje.ADatos());
+            if (resultado.EsExito)
+            {
+                erroresPersonaje = [];
+                personaje = new();
+                personajes = await ServicioPersonajes.ListarAsync(SerieId);
+            }
+            else
+            {
+                erroresPersonaje = resultado.Errores;
+            }
+        }
+        finally
+        {
+            guardandoPersonaje = false;
+        }
+    }
+
+    private async Task CrearEpisodioAsync()
+    {
+        if (guardandoEpisodio)
+        {
+            return;
+        }
+
+        guardandoEpisodio = true;
+        try
+        {
+            // Sin número, el servicio responde con su error de rango (validación autoritativa).
+            var resultado = await ServicioEpisodios.CrearAsync(SerieId, numeroEpisodio ?? 0, tituloEpisodio);
+            if (resultado.EsExito)
+            {
+                erroresEpisodio = [];
+                numeroEpisodio = null;
+                tituloEpisodio = "";
+                episodios = await ServicioEpisodios.ListarAsync(SerieId);
+            }
+            else
+            {
+                erroresEpisodio = resultado.Errores;
+            }
+        }
+        finally
+        {
+            guardandoEpisodio = false;
+        }
+    }
+
+    private static IEnumerable<ErrorServicio> ErroresGenerales(IEnumerable<ErrorServicio> errores, IReadOnlyCollection<string> campos) =>
+        errores.Where(e => e.Campo is null || !campos.Contains(e.Campo));
+
+    private static RenderFragment ErroresDe(IEnumerable<ErrorServicio> errores, string campo) => __builder =>
+    {
+        foreach (var error in errores.Where(e => e.Campo == campo))
+        {
+            <div class="text-danger" data-campo="@campo">@error.Motivo</div>
+        }
+    };
+
+    private sealed class FormularioPersonaje
+    {
+        public string Nombre { get; set; } = "";
+        public string Edad { get; set; } = "";
+        public string DescripcionFisica { get; set; } = "";
+        public string Peinado { get; set; } = "";
+        public string Vestuario { get; set; } = "";
+        public string HeridasMarcas { get; set; } = "";
+        public string Personalidad { get; set; } = "";
+        public string Rol { get; set; } = "";
+
+        public DatosPersonaje ADatos() => new(
+            Nombre, Edad, DescripcionFisica, Peinado, Vestuario, HeridasMarcas, Personalidad, Rol);
+    }
+}
