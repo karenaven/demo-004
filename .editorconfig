@@ -1,0 +1,35 @@
+root = true
+
+[*]
+charset = utf-8
+end_of_line = lf
+insert_final_newline = true
+trim_trailing_whitespace = true
+indent_style = space
+indent_size = 4
+
+[*.{json,slnx,csproj,props,targets,xml,yml,yaml}]
+indent_size = 2
+
+[*.md]
+trim_trailing_whitespace = false
+
+[*.cs]
+# Espacios de nombres con ámbito de archivo
+csharp_style_namespace_declarations = file_scoped:warning
+
+# var cuando el tipo es evidente
+csharp_style_var_when_type_is_apparent = true:suggestion
+csharp_style_var_for_built_in_types = true:suggestion
+csharp_style_var_elsewhere = false:suggestion
+
+# usings innecesarios
+dotnet_diagnostic.IDE0005.severity = warning
+
+# Orden de usings
+dotnet_sort_system_directives_first = true
+dotnet_separate_import_directive_groups = false
+
+# Migraciones generadas por dotnet-ef: se dejan como las emite la herramienta
+[src/RodajeIA.Web/Datos/Migraciones/**.cs]
+generated_code = true

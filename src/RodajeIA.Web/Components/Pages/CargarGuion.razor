@@ -1,0 +1,125 @@
+@page "/guiones/cargar"
+@rendermode InteractiveServer
+@using RodajeIA.Web.Servicios
+@using ErrorServicio = RodajeIA.Web.Servicios.Error
+@inject ServicioSeries ServicioSeries
+@inject ServicioEpisodios ServicioEpisodios
+@inject ServicioGuiones ServicioGuiones
+
+<PageTitle>Cargar guion</PageTitle>
+
+<h1>Cargar guion</h1>
+
+<div class="mb-3">
+    <label for="selector-serie" class="form-label">Serie</label>
+    <select id="selector-serie" class="form-select" value="@(serieId?.ToString() ?? "")" @onchange="CambiarSerieAsync">
+        <option value="">Elige una serie</option>
+        @foreach (var serie in series)
+        {
+            <option value="@serie.Id">@serie.Nombre</option>
+        }
+    </select>
+</div>
+
+<div class="mb-3">
+    <label for="selector-episodio" class="form-label">Episodio</label>
+    <select id="selector-episodio" class="form-select" value="@(episodioId?.ToString() ?? "")" @onchange="CambiarEpisodio" disabled="@(serieId is null)">
+        <option value="">Elige un episodio</option>
+        @foreach (var episodio in episodios)
+        {
+            <option value="@episodio.Id">Episodio @episodio.Numero — @episodio.Titulo</option>
+        }
+    </select>
+</div>
+
+<div class="mb-3">
+    <label for="guion" class="form-label">Guion</label>
+    <textarea id="guion" class="form-control font-monospace" rows="20" maxlength="@ServicioGuiones.MaximoCaracteres"
+              @bind="texto" @bind:event="oninput"></textarea>
+</div>
+
+<button id="validar-y-guardar" type="button" class="btn btn-primary" disabled="@(!PuedeGuardar)" @onclick="ValidarYGuardarAsync">
+    Validar y guardar
+</button>
+
+@if (resumen is not null)
+{
+    <div id="resultado-carga" class="alert alert-success mt-3">
+        Guion guardado: @resumen.Escenas escenas en estado pendiente
+    </div>
+}
+
+@if (errores.Count > 0)
+{
+    <div class="alert alert-danger mt-3">
+        <p>El guion no se guardó:</p>
+        <ul id="errores-guion">
+            @foreach (var error in errores)
+            {
+                @if (error.Linea is int linea)
+                {
+                    <li>Línea @linea: @error.Motivo</li>
+                }
+                else
+                {
+                    <li>@error.Motivo</li>
+                }
+            }
+        </ul>
+    </div>
+}
+
+@code {
+    private IReadOnlyList<SerieResumen> series = [];
+    private IReadOnlyList<EpisodioResumen> episodios = [];
+    private int? serieId;
+    private int? episodioId;
+    private string texto = "";
+    private bool procesando;
+    private ResumenCarga? resumen;
+    private IReadOnlyList<ErrorServicio> errores = [];
+
+    private bool PuedeGuardar => serieId is not null && episodioId is not null && !procesando;
+
+    protected override async Task OnInitializedAsync() => series = await ServicioSeries.ListarAsync();
+
+    private async Task CambiarSerieAsync(ChangeEventArgs e)
+    {
+        serieId = int.TryParse(e.Value?.ToString(), out var id) ? id : null;
+        // Al cambiar de serie se vacía el episodio elegido.
+        episodioId = null;
+        episodios = serieId is int serie ? await ServicioEpisodios.ListarAsync(serie) : [];
+    }
+
+    private void CambiarEpisodio(ChangeEventArgs e) =>
+        episodioId = int.TryParse(e.Value?.ToString(), out var id) && episodios.Any(ep => ep.Id == id) ? id : null;
+
+    private async Task ValidarYGuardarAsync()
+    {
+        if (procesando)
+        {
+            return;
+        }
+
+        procesando = true;
+        resumen = null;
+        errores = [];
+        try
+        {
+            // Si llega sin serie o episodio, el servicio responde con su error (no se guarda nada).
+            var resultado = await ServicioGuiones.CargarAsync(serieId, episodioId, texto);
+            if (resultado.EsExito)
+            {
+                resumen = resultado.Valor;
+            }
+            else
+            {
+                errores = resultado.Errores;
+            }
+        }
+        finally
+        {
+            procesando = false;
+        }
+    }
+}

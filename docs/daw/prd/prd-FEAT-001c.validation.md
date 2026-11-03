@@ -1,0 +1,17 @@
+```
+/daw-validate-prd docs/daw/prd/prd-FEAT-001c.md — PASSED
+────────────────────────────────────────────────────────────────
+  ✅ F-PRD-08: all mandatory sections present
+  ✅ F-PRD-05: 4 FR, 2 NFR, 8 AC — unique, gapless
+  ✅ F-PRD-01: every FR is validated by at least one AC
+  ✅ F-PRD-03: every NFR carries a quantitative value
+  ✅ F-PRD-04: Out of Scope has explicit items
+  ✅ F-PRD-06: no ambiguous verbs in requirements
+  ✅ F-PRD-09: every AC matches an EARS pattern
+  ⚠️ W-PRD-04: no IF…THEN…SHALL criterion — nobody wrote the failure modes down
+  👁  F-PRD-02 (binary ACs) and F-PRD-07 (undeclared cross-references) are
+      MANUAL: judge them and say so explicitly in your report.
+────────────────────────────────────────────────────────────────
+Total: 7 passed, 0 failed, 1 warnings
+Result: PASSED
+```
