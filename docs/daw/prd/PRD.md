@@ -34,6 +34,7 @@ Los RF que agrupan varias acciones se dividen con letra (RF-03a, RF-03b…); el 
 - **RF-01f:** El sistema debe permitir listar las hojas de personaje de una serie.
 - **RF-01g:** El sistema debe permitir editar una hoja de personaje, sin dejar vacío ningún campo obligatorio (RF-01e).
 - **RF-01h:** El sistema debe permitir eliminar una hoja de personaje de la base de datos, junto con sus variantes, incluidas las de escenas en estado "generando" o "generada" (RF-09e no aplica).
+- **RF-01i:** El sistema debe rechazar, al crear una hoja de personaje, un nombre que no empiece con letra o que tenga caracteres distintos de letras, dígitos, espacio, guion (`-`), apóstrofo recto (`'`) o tipográfico (`’`) y punto, indicando los caracteres permitidos. Las hojas creadas antes de esta regla no se modifican.
 
 **Carga y validación del guion**
 
@@ -49,7 +50,7 @@ Los RF que agrupan varias acciones se dividen con letra (RF-03a, RF-03b…); el 
 - **RF-04b:** El sistema debe dividir de forma determinística cada escena en sus clips.
 - **RF-04c:** El sistema debe separar de forma determinística el contenido de cada clip en acción, líneas de diálogo (personaje, acotación opcional y texto) y texto en pantalla.
 - **RF-04d:** El sistema debe extraer de forma determinística de cada escena su encabezado (número, INT/EXT, lugar, momento del día) y sus cuatro campos obligatorios.
-- **RF-05a:** El sistema debe identificar de forma determinística (sin IA) los personajes presentes en cada clip. Un personaje está presente en un clip si el nombre de su hoja aparece como palabra completa en la acción, escrito exactamente como en la hoja, con mayúscula inicial y con sus tildes (por ejemplo "Ana", "José Daniel"; "Anabel" o "Jose" no cuentan), o como marcador de diálogo en mayúsculas (por ejemplo `ANA:`).
+- **RF-05a:** El sistema debe identificar de forma determinística (sin IA) los personajes presentes en cada clip. Un personaje está presente en un clip si el nombre de su hoja aparece como palabra completa en la acción, escrito exactamente como en la hoja, con mayúscula inicial y con sus tildes (por ejemplo "Ana", "José Daniel"; "Anabel" o "Jose" no cuentan), o como marcador de diálogo en mayúsculas (por ejemplo `ANA:`). Al comparar el marcador con el nombre de la hoja, el apóstrofo recto (`'`) y el tipográfico (`’`) cuentan como el mismo carácter; es solo una equivalencia de comparación y el texto del guion no se modifica.
 - **RF-05b:** El sistema debe identificar de forma determinística (sin IA) los personajes presentes en cada escena. Un personaje está presente en una escena si está presente en alguno de sus clips (RF-05a) o si su nombre aparece en `PUESTA EN ESCENA:` escrito de la misma forma que en la acción.
 
 **Generación y revisión**
@@ -140,6 +141,8 @@ No hay AC de control de acceso: la v1 es monousuario y local, sin login ni separ
 - **AC-01i (RF-01e):** Dada una serie existente, cuando se intenta crear una hoja de personaje con el peinado vacío, entonces la hoja no se guarda y se indica que falta el peinado.
 - **AC-01j (RF-01e):** Dada una serie existente, cuando se crea una hoja de personaje con todos los campos salvo heridas/marcas, entonces la hoja queda guardada.
 - **AC-01k (RF-01g):** Dada una hoja con peinado "trenza larga", cuando se edita dejando el peinado vacío, entonces el cambio no se guarda, se indica que falta el peinado y la hoja conserva "trenza larga".
+- **AC-01l (RF-01i):** Dada una serie existente, cuando se intenta crear una hoja de personaje con el nombre "Ana (niña)", entonces la hoja no se guarda y se indican los caracteres permitidos en el nombre.
+- **AC-01m (RF-01i):** Dada una serie existente, cuando se crea una hoja de personaje con el nombre "Ana-María", "O'Brien", "François" o "St. James", entonces la hoja queda guardada.
 
 **Carga y validación del guion**
 
@@ -168,6 +171,7 @@ No hay AC de control de acceso: la v1 es monousuario y local, sin login ni separ
 - **AC-03s (RF-03a, RF-03b):** Dada una escena con la línea `AUDIO:` sin texto después del marcador, cuando se intenta cargar el guion, entonces se rechaza con un error en el número de línea de esa línea.
 - **AC-03t (RF-03a, RF-03b):** Dada una escena con la línea `AUDIO:` ubicada después de `CLIP 1`, cuando se intenta cargar el guion, entonces se rechaza y la lista de errores incluye uno en el número de línea de ese `AUDIO:`.
 - **AC-03u (RF-03a, RF-03b):** Dado un guion vacío, cuando se intenta cargar, entonces se rechaza con un error en la línea 1.
+- **AC-03v (RF-03a, RF-03b):** Dado un clip con la línea `ANA-MARÍA: Hola` (sin comillas), cuando se intenta cargar el guion, entonces se rechaza con un error en el número de línea de esa línea y el motivo "El diálogo debe ir entre comillas".
 
 **División del guion y detección de personajes**
 
@@ -183,6 +187,10 @@ No hay AC de control de acceso: la v1 es monousuario y local, sin login ni separ
 - **AC-05e (RF-05a):** Dada la hoja "Ana" y un clip cuya acción menciona "Anabel" y que no tiene diálogo de `ANA:`, cuando se procesa, entonces Ana no aparece en la lista de personajes de ese clip.
 - **AC-05f (RF-05a):** Dada la hoja "José Daniel" y un clip cuya acción menciona "Jose Daniel" (sin tilde) y que no tiene diálogo de `JOSÉ DANIEL:`, cuando se procesa, entonces José Daniel no aparece en la lista de personajes de ese clip.
 - **AC-05g (RF-05b):** Dada la hoja "Ana" y una escena cuya `PUESTA EN ESCENA:` menciona "Ana" y cuyos clips no la mencionan ni tienen diálogo de `ANA:`, cuando se procesa, entonces Ana aparece en la lista de personajes de la escena y no aparece en la de ningún clip.
+- **AC-05h (RF-04c, RF-05a):** Dada la hoja "Ana-María" y un clip con la línea `ANA-MARÍA: "Hola."` cuya acción no menciona "Ana-María", cuando se procesa, entonces la línea queda como diálogo del clip (no como acción) y Ana-María aparece en la lista de personajes de ese clip.
+- **AC-05i (RF-04c, RF-05a):** Dada la hoja "O'Brien" y un clip con la línea `O'BRIEN (serio): "Hola."` cuya acción no menciona "O'Brien", cuando se procesa, entonces la línea queda como diálogo del clip con la acotación "serio" y O'Brien aparece en la lista de personajes de ese clip.
+- **AC-05j (RF-04c, RF-05a):** Dada la hoja "François" y un clip con la línea `FRANÇOIS: "Bonjour."` cuya acción no menciona "François", cuando se procesa, entonces la línea queda como diálogo del clip y François aparece en la lista de personajes de ese clip.
+- **AC-05k (RF-05a, RN-04):** Dada la hoja "O'Brien" (apóstrofo recto) y un clip con la línea `O’BRIEN: "Hola."` (apóstrofo tipográfico), cuando se procesa, entonces O'Brien aparece en la lista de personajes de ese clip y la línea de diálogo guardada conserva el apóstrofo tipográfico tal como está en el guion.
 
 **Generación y revisión**
 
@@ -311,7 +319,7 @@ El guion se divide en escenas, cada escena trae cuatro campos obligatorios y se 
 | `TEXTO EN PANTALLA: "texto"` | Clip | No; como máximo uno por clip | `TEXTO EN PANTALLA: "Hermano, ..."` |
 | Línea sin marcador | Clip | No | Bloque de acción |
 
-**Reglas.** Los personajes se nombran siempre con el nombre de su hoja: en la acción, tal como está en la hoja, con mayúscula inicial y sus tildes (`Ana`, `José Daniel`); como marcador de diálogo, en mayúsculas (`ANA:`, `JOSÉ DANIEL:`). Un personaje secundario sin hoja puede tener diálogo (`MESERO: "¿Algo más?"`): no es un error y no se detecta como personaje (RN-07). En el encabezado de escena, los separadores pueden ser raya (`—`) o guion común (`-`), e INT/EXT se escribe solo `INT.` o `EXT.`, con punto. Las líneas en blanco se permiten en cualquier lugar y se ignoran (no cuentan como contenido), pero sí cuentan para el número de línea que se reporta. Cada clip debe poder representarse en unos 8 segundos (límite de Flow); esto es criterio del guionista y el sistema no lo valida.
+**Reglas.** Los personajes se nombran siempre con el nombre de su hoja: en la acción, tal como está en la hoja, con mayúscula inicial y sus tildes (`Ana`, `José Daniel`); como marcador de diálogo, en mayúsculas (`ANA:`, `JOSÉ DANIEL:`). El nombre de un marcador de diálogo empieza con una letra mayúscula y admite letras mayúsculas de cualquier idioma (`Ç`, `Ë`, `À`…), dígitos, espacio, guion (`-`), apóstrofo recto (`'`) o tipográfico (`’`) y punto (`ANA-MARÍA:`, `O'BRIEN:`, `FRANÇOIS:`, `ST. JAMES:`); son los mismos caracteres que admite el nombre de una hoja (RF-01i). Un personaje secundario sin hoja puede tener diálogo (`MESERO: "¿Algo más?"`): no es un error y no se detecta como personaje (RN-07). En el encabezado de escena, los separadores pueden ser raya (`—`) o guion común (`-`), e INT/EXT se escribe solo `INT.` o `EXT.`, con punto. Las líneas en blanco se permiten en cualquier lugar y se ignoran (no cuentan como contenido), pero sí cuentan para el número de línea que se reporta. Cada clip debe poder representarse en unos 8 segundos (límite de Flow); esto es criterio del guionista y el sistema no lo valida.
 
 **Errores de validación.** Cualquiera de estos casos rechaza el guion completo (RF-03c):
 
