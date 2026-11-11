@@ -14,3 +14,8 @@ El formato sigue [Keep a Changelog](https://keepachangelog.com/es-ES/1.1.0/).
 - [FEAT-001a] Parser determinístico y validación del guion contra la convención de formato: un guion inválido se rechaza completo con la lista de errores (línea y motivo) y uno válido se guarda dividido en escenas y clips en estado «pendiente».
 - [FEAT-001a] Detección determinística de personajes por nombre exacto, con rechazo de líneas en NFD.
 - [FEAT-001a] Al recargar un guion válido se sobrescribe el anterior y se eliminan sus escenas, clips y bloques.
+
+### Fixed
+
+- [FIX-001] Las líneas de diálogo cuyo marcador lleva guion (`-`), apóstrofo (`'` o `’`), punto o letras como `Ç` ya no se tratan como acción sin aviso: se reconocen como diálogo (y se rechazan con línea y motivo si les faltan las comillas), y el personaje se detecta comparando el apóstrofo recto y el tipográfico como el mismo.
+- [FIX-001] El alta de una hoja de personaje rechaza los nombres con caracteres que no podrían usarse como marcador de diálogo, y considera repetidos `O'Brien` y `O’Brien`.
