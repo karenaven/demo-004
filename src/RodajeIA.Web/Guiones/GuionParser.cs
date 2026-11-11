@@ -37,7 +37,7 @@ public static class GuionParser
         new(@"^(LOCACIÓN|ILUMINACIÓN|PUESTA EN ESCENA|AUDIO):", Opciones);
 
     private static readonly Regex MarcadorDialogo =
-        new(@"^[A-ZÁÉÍÓÚÑÜ][A-ZÁÉÍÓÚÑÜ0-9 ]*\s*[(:]", Opciones);
+        new("^" + NombrePersonaje.FragmentoMarcador + @"\s*[(:]", Opciones);
 
     internal const string MotivoSinEscena = "El guion no tiene ninguna escena (ESCENA N — …)";
     internal const string MotivoTextoAntes = "Texto antes de la primera escena";

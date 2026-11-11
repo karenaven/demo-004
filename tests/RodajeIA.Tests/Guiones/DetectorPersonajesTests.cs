@@ -299,4 +299,77 @@ public class DetectorPersonajesTests
         Assert.Empty(detectados.EnClip(1, 2));
         Assert.Equal(["Dr. (Ana)", "A.b"], detectados.EnEscena(1));
     }
+
+    // ---------- Marcadores con - ' ’ Ç (FIX-001) ----------
+
+    [Fact]
+    public void Detectar_MarcadorConGuion_DetectaHoja()
+    {
+        // AC-05h: regresión de FIX-001 (antes el diálogo caía como acción y no se detectaba).
+        var guion = Guion(PuestaNeutra, ["La lluvia golpea el vidrio.", "ANA-MARÍA: \"Hola.\""]);
+
+        var detectados = DetectorPersonajes.Detectar(guion, ["Ana-María"]);
+
+        Assert.Equal(["Ana-María"], detectados.EnClip(1, 1));
+        Assert.Equal(["Ana-María"], detectados.EnEscena(1));
+    }
+
+    [Fact]
+    public void Detectar_MarcadorConApostrofo_DetectaHoja()
+    {
+        // AC-05i
+        var guion = Guion(PuestaNeutra, ["La lluvia golpea el vidrio.", "O'BRIEN (serio): \"Hola.\""]);
+
+        var detectados = DetectorPersonajes.Detectar(guion, ["O'Brien"]);
+
+        Assert.Equal(["O'Brien"], detectados.EnClip(1, 1));
+    }
+
+    [Fact]
+    public void Detectar_MarcadorConCedilla_DetectaHoja()
+    {
+        // AC-05j
+        var guion = Guion(PuestaNeutra, ["La lluvia golpea el vidrio.", "FRANÇOIS: \"Bonjour.\""]);
+
+        var detectados = DetectorPersonajes.Detectar(guion, ["François"]);
+
+        Assert.Equal(["François"], detectados.EnClip(1, 1));
+    }
+
+    [Fact]
+    public void Detectar_ApostrofoTipograficoEnMarcador_DetectaHojaConApostrofoRecto()
+    {
+        // AC-05k: equivalencia ' / ’ solo para comparar; el diálogo conserva el ’ (M-03).
+        var guion = Guion(PuestaNeutra, ["La lluvia golpea el vidrio.", "O’BRIEN: \"Hola.\""]);
+
+        var detectados = DetectorPersonajes.Detectar(guion, ["O'Brien"]);
+
+        Assert.Equal(["O'Brien"], detectados.EnClip(1, 1));
+        var dialogo = Assert.Single(guion.Escenas[0].Clips[0].Dialogos);
+        Assert.Equal("O’BRIEN", dialogo.Personaje);
+        Assert.Equal("O’BRIEN: \"Hola.\"", dialogo.Original);
+    }
+
+    [Fact]
+    public void Detectar_ApostrofoRectoEnMarcador_DetectaHojaConApostrofoTipografico()
+    {
+        var guion = Guion(PuestaNeutra, ["O'BRIEN: \"Hola.\""]);
+
+        var detectados = DetectorPersonajes.Detectar(guion, ["O’Brien"]);
+
+        Assert.Equal(["O’Brien"], detectados.EnClip(1, 1));
+    }
+
+    [Fact]
+    public void Detectar_ApostrofoEnAccion_SigueSiendoExacto()
+    {
+        // RF-05a: en la acción el nombre se busca tal como está en la hoja; la equivalencia es
+        // solo para el marcador.
+        var guion = Guion(PuestaNeutra, ["O’Brien entra a la sala."], ["O'Brien se sienta."]);
+
+        var detectados = DetectorPersonajes.Detectar(guion, ["O'Brien"]);
+
+        Assert.Empty(detectados.EnClip(1, 1));
+        Assert.Equal(["O'Brien"], detectados.EnClip(1, 2));
+    }
 }

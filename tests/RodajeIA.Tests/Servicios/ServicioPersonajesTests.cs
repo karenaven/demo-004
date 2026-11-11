@@ -263,6 +263,67 @@ public sealed class ServicioPersonajesTests : IDisposable
         Assert.Equal("José Daniel", guardado.Nombre);
     }
 
+    // ---------- Caracteres del nombre (RF-01i, FIX-001) ----------
+
+    private const string FraseCaracteresPermitidos =
+        "letras, dígitos, espacio, guion (-), apóstrofo (' o ’) y punto, empezando con una letra";
+
+    [Theory]
+    [InlineData("Ana (niña)")]
+    [InlineData("-Ana")]
+    [InlineData("1Ana")]
+    [InlineData("'Ana")]
+    [InlineData("Ana/María")]
+    public async Task CrearPersonaje_NombreConCaracteresNoPermitidos_SeRechaza(string nombre)
+    {
+        // AC-01l
+        var ct = TestContext.Current.CancellationToken;
+        var serieId = await CrearSerieAsync();
+
+        var resultado = await _servicio.CrearAsync(serieId, Completo(nombre), ct);
+
+        Assert.False(resultado.EsExito);
+        var error = Assert.Single(resultado.Errores);
+        Assert.Equal("Nombre", error.Campo);
+        Assert.Contains(FraseCaracteresPermitidos, error.Motivo);
+        Assert.Empty(await PersonajesGuardadosAsync());
+    }
+
+    [Theory]
+    [InlineData("Ana-María")]
+    [InlineData("O'Brien")]
+    [InlineData("O’Brien")]
+    [InlineData("François")]
+    [InlineData("St. James")]
+    [InlineData("Ana 2")]
+    public async Task CrearPersonaje_NombresConCaracteresPermitidos_SeGuardan(string nombre)
+    {
+        // AC-01m
+        var ct = TestContext.Current.CancellationToken;
+        var serieId = await CrearSerieAsync();
+
+        var resultado = await _servicio.CrearAsync(serieId, Completo(nombre), ct);
+
+        Assert.True(resultado.EsExito);
+        Assert.Equal(nombre, Assert.Single(await PersonajesGuardadosAsync()).Nombre);
+    }
+
+    [Fact]
+    public async Task CrearPersonaje_ApostrofoRectoYTipografico_SonRepetidos()
+    {
+        // M-02: «O'Brien» y «O’Brien» darían el mismo marcador de diálogo.
+        var ct = TestContext.Current.CancellationToken;
+        var serieId = await CrearSerieAsync();
+        Assert.True((await _servicio.CrearAsync(serieId, Completo("O'Brien"), ct)).EsExito);
+
+        var resultado = await _servicio.CrearAsync(serieId, Completo("O’Brien"), ct);
+
+        var error = Assert.Single(resultado.Errores);
+        Assert.Equal("Nombre", error.Campo);
+        Assert.Equal(ServicioPersonajes.MotivoNombreRepetido, error.Motivo);
+        Assert.Equal("O'Brien", Assert.Single(await PersonajesGuardadosAsync()).Nombre);
+    }
+
     [Fact]
     public async Task ListarPersonajes_DosHojas_DevuelveLasDos()
     {

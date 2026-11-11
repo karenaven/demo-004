@@ -88,7 +88,7 @@ public class GuionParserTests
         Assert.Equal(12, variante.Guion.Escenas[0].Clips[0].Linea);
 
         // Un BOM inicial se quita al leer: mismo resultado, incluidos los números de línea.
-        var conBom = GuionParser.Parsear("﻿" + EscenaDeEjemplo);
+        var conBom = GuionParser.Parsear("\uFEFF" + EscenaDeEjemplo);
         Assert.Empty(conBom.Errores);
         Assert.Equal(JsonSerializer.Serialize(original.Guion), JsonSerializer.Serialize(conBom.Guion));
     }
@@ -804,6 +804,115 @@ public class GuionParserTests
 
         var invalido = GuionParser.Parsear(Unir([patologicas[1], .. EscenaMinima(1)[1..]]));
         Assert.Equal([new ErrorGuion(1, MotivoEncabezadoInvalido)], invalido.Errores);
+    }
+
+    // ---------- Caracteres del marcador de diálogo (FIX-001, Anexo A) ----------
+
+    private static LineaDialogoParseada DialogoUnico(string linea)
+    {
+        var resultado = GuionParser.Parsear(Unir([.. EscenaMinima(1), linea]));
+
+        Assert.Empty(resultado.Errores);
+        Assert.NotNull(resultado.Guion);
+        var clip = Assert.Single(Assert.Single(resultado.Guion.Escenas).Clips);
+        Assert.Equal(["Ana mira por la ventana."], clip.LineasAccion);
+        return Assert.Single(clip.Dialogos);
+    }
+
+    [Fact]
+    public void Parsear_MarcadorConGuion_EsDialogo()
+    {
+        // AC-05h: regresión de FIX-001 (antes la línea caía como acción, sin error).
+        var dialogo = DialogoUnico("ANA-MARÍA: \"Hola.\"");
+
+        Assert.Equal("ANA-MARÍA", dialogo.Personaje);
+        Assert.Null(dialogo.Acotacion);
+        Assert.Equal("Hola.", dialogo.Texto);
+    }
+
+    [Fact]
+    public void Parsear_MarcadorConGuionSinComillas_SeRechaza()
+    {
+        // AC-03v: regresión de FIX-001 (antes se aceptaba como acción).
+        var resultado = GuionParser.Parsear(Unir([.. EscenaMinima(1), "ANA-MARÍA: Hola"]));
+
+        Assert.Null(resultado.Guion);
+        Assert.Equal([new ErrorGuion(8, "El diálogo debe ir entre comillas")], resultado.Errores);
+    }
+
+    [Fact]
+    public void Parsear_MarcadorConApostrofoYAcotacion_EsDialogo()
+    {
+        // AC-05i
+        var dialogo = DialogoUnico("O'BRIEN (serio): \"Hola.\"");
+
+        Assert.Equal("O'BRIEN", dialogo.Personaje);
+        Assert.Equal("serio", dialogo.Acotacion);
+        Assert.Equal("Hola.", dialogo.Texto);
+    }
+
+    [Fact]
+    public void Parsear_MarcadorConCedilla_EsDialogo()
+    {
+        // AC-05j
+        var dialogo = DialogoUnico("FRANÇOIS: \"Bonjour.\"");
+
+        Assert.Equal("FRANÇOIS", dialogo.Personaje);
+        Assert.Equal("Bonjour.", dialogo.Texto);
+    }
+
+    [Theory]
+    [InlineData("ST. JAMES: \"Hola.\"", "ST. JAMES")]
+    [InlineData("O’BRIEN: \"Hola.\"", "O’BRIEN")]
+    public void Parsear_MarcadorConPuntoYApostrofoTipografico_EsDialogo(string linea, string personaje)
+    {
+        var dialogo = DialogoUnico(linea);
+
+        // El marcador se guarda tal como está en el guion: el apóstrofo tipográfico no se toca.
+        Assert.Equal(personaje, dialogo.Personaje);
+        Assert.Equal(linea, dialogo.Original);
+    }
+
+    [Fact]
+    public void Parsear_AccionMayusculasConPuntoAntesDeParentesis_SeTrataComoDialogo()
+    {
+        // Regresión documentada en el fix-plan (M-05): detección permisiva del Anexo A.
+        var resultado = GuionParser.Parsear(Unir([.. EscenaMinima(1), "OK. (pausa)"]));
+
+        Assert.Null(resultado.Guion);
+        Assert.Equal([new ErrorGuion(8, "El diálogo debe ir entre comillas")], resultado.Errores);
+    }
+
+    [Theory]
+    [InlineData("-ANA: \"Hola.\"")]
+    [InlineData("1ANA: \"Hola.\"")]
+    [InlineData("'ANA: \"Hola.\"")]
+    public void Parsear_MarcadorQueEmpiezaConDigitoOGuion_EsAccion(string linea)
+    {
+        var resultado = GuionParser.Parsear(Unir([.. EscenaMinima(1), linea]));
+
+        Assert.Empty(resultado.Errores);
+        Assert.NotNull(resultado.Guion);
+        var clip = Assert.Single(Assert.Single(resultado.Guion.Escenas).Clips);
+        Assert.Empty(clip.Dialogos);
+        Assert.Equal(["Ana mira por la ventana.", linea], clip.LineasAccion);
+    }
+
+    [Fact]
+    public void Rendimiento_LineaPatologicaCaracteresNuevos_MenorA1Segundo()
+    {
+        // M-01: el marcador ampliado sigue siendo lineal con una línea larga sin «:» ni «(».
+        const int Largo = 200_000;
+        var linea = Rellenar("A", "A-'’. ", Largo) + "x";
+        var texto = Unir([.. EscenaMinima(1), linea]);
+        GuionParser.Parsear(Unir(EscenaMinima(1)));
+
+        var reloj = Stopwatch.StartNew();
+        var resultado = GuionParser.Parsear(texto);
+        reloj.Stop();
+
+        Assert.True(reloj.Elapsed < TimeSpan.FromSeconds(1), $"{reloj.Elapsed.TotalMilliseconds} ms");
+        Assert.Empty(resultado.Errores);
     }
 
     // ---------- Auxiliares ----------

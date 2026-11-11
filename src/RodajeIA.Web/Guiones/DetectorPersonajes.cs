@@ -10,7 +10,9 @@ namespace RodajeIA.Web.Guiones;
 /// marca combinante ni número pegados), escrito exactamente como en la hoja, en alguna línea de
 /// acción, o si es el marcador (en mayúsculas) de alguna línea de diálogo. Está en una escena si
 /// está en alguno de sus clips o si su nombre aparece en la puesta en escena. No se busca en el texto del diálogo, la acotación ni el texto
-/// en pantalla. La comparación se hace en forma Unicode NFC; los textos no se modifican.
+/// en pantalla. La comparación se hace en forma Unicode NFC; al comparar el marcador con la hoja,
+/// el apóstrofo recto y el tipográfico cuentan como el mismo (RF-05a, ADR-003). Los textos no se
+/// modifican.
 /// </summary>
 public static class DetectorPersonajes
 {
@@ -45,7 +47,9 @@ public static class DetectorPersonajes
             foreach (var clip in escena.Clips)
             {
                 var accion = clip.LineasAccion.Select(NFC).ToList();
-                var marcadores = clip.Dialogos.Select(d => NFC(d.Personaje)).ToHashSet(StringComparer.Ordinal);
+                var marcadores = clip.Dialogos
+                    .Select(d => NombrePersonaje.ClaveDeMarcador(d.Personaje))
+                    .ToHashSet(StringComparer.Ordinal);
 
                 var presentes = hojas
                     .Where(h => marcadores.Contains(h.Marcador) || accion.Any(h.Patron.IsMatch))
@@ -71,7 +75,8 @@ public static class DetectorPersonajes
     /// <param name="Nombre">El nombre tal como está en la hoja (es el que se devuelve).</param>
     /// <param name="Patron">Nombre en NFC, escapado, con bordes de letra, marca combinante o
     /// número Unicode.</param>
-    /// <param name="Marcador">Nombre en NFC y en mayúsculas (es-ES), para los diálogos.</param>
+    /// <param name="Marcador">Nombre en mayúsculas (es-ES) como <see cref="NombrePersonaje.ClaveDeMarcador"/>,
+    /// para los diálogos.</param>
     private sealed record Hoja(string Nombre, Regex Patron, string Marcador)
     {
         public static Hoja Crear(string nombre)
@@ -80,7 +85,7 @@ public static class DetectorPersonajes
             var patron = new Regex(
                 @"(?<![\p{L}\p{M}\p{N}])" + Regex.Escape(nfc) + @"(?![\p{L}\p{M}\p{N}])",
                 RegexOptions.CultureInvariant);
-            return new Hoja(nombre, patron, NFC(nfc.ToUpper(Espanol)));
+            return new Hoja(nombre, patron, NombrePersonaje.ClaveDeMarcador(nfc.ToUpper(Espanol)));
         }
     }
 }

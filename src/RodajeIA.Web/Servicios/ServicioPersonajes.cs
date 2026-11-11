@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text;
 using Microsoft.EntityFrameworkCore;
 using RodajeIA.Web.Datos;
+using RodajeIA.Web.Guiones;
 
 namespace RodajeIA.Web.Servicios;
 
@@ -19,6 +20,8 @@ public sealed class ServicioPersonajes(IDbContextFactory<RodajeDbContext> fabric
 
     internal const string MotivoNombreNoNfc =
         "El nombre tiene tildes en formato no estándar (NFD); vuelve a escribirlo desde otro editor";
+
+    internal const string MotivoNombreCaracteres = "El nombre solo admite " + NombrePersonaje.CaracteresPermitidos;
 
     /// <summary>
     /// Crea una hoja de personaje. Cada campo se recorta en los extremos y no se reescribe de otra
@@ -54,6 +57,11 @@ public sealed class ServicioPersonajes(IDbContextFactory<RodajeDbContext> fabric
         if (nombre.Length > 0 && !nombre.IsNormalized(NormalizationForm.FormC))
         {
             errores.Add(new Error(MotivoNombreNoNfc, Campo: "Nombre"));
+        }
+        else if (nombre.Length is > 0 and <= MaximoNombre && !NombrePersonaje.EsNombreDeHojaValido(nombre))
+        {
+            // RF-01i: solo si el nombre ya pasó NFC y el largo, para dar un único error en Nombre.
+            errores.Add(new Error(MotivoNombreCaracteres, Campo: "Nombre"));
         }
 
         if (errores.Count > 0)
@@ -104,9 +112,12 @@ public sealed class ServicioPersonajes(IDbContextFactory<RodajeDbContext> fabric
         }
     }
 
-    /// <summary>Clave de comparación de nombres: NFC y mayúsculas es-ES (solo para comparar; nada se guarda así).</summary>
+    /// <summary>
+    /// Clave de comparación de nombres: la del marcador del detector (NFC, mayúsculas es-ES y
+    /// <c>’</c> como <c>'</c>, ADR-003). Solo para comparar; nada se guarda así.
+    /// </summary>
     private static string ClaveDeNombre(string nombre) =>
-        nombre.Normalize(NormalizationForm.FormC).ToUpper(Espanol).Normalize(NormalizationForm.FormC);
+        NombrePersonaje.ClaveDeMarcador(nombre.Normalize(NormalizationForm.FormC).ToUpper(Espanol));
 
     /// <summary>Hojas de personaje de la serie, ordenadas por nombre.</summary>
     public async Task<IReadOnlyList<PersonajeResumen>> ListarAsync(int serieId, CancellationToken ct = default)
